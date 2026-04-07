@@ -1,5 +1,5 @@
 import React from "react";
-import { testimonials } from "../components/Testimonials/Testimonials";
+import { testimonials } from "../components/Testimonials/testimonials";
 import TestimonialCard from "../components/Testimonials/TestimonialCard";
 import { motion } from "framer-motion";
 
