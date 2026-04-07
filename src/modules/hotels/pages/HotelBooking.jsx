@@ -1,0 +1,273 @@
+"use client";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { privateApi } from "../../../services/api";
+import { useHotelStore } from "../../../store/hotelStore";
+
+const HotelBooking = () => {
+  const { setGuestDetails } = useHotelStore();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const state = location.state || {};
+  const payload = state?.payload || state;
+
+  const { hotel, preBook, checkIn, checkOut, guests } = payload;
+
+  if (!preBook) {
+    return (
+      <div className="p-10 text-center text-white bg-[#0B0B0F] min-h-screen">
+        <h2 className="text-xl text-red-400 mb-4">⚠️ Session Expired</h2>
+        <p className="text-gray-400 mb-6">
+          Your booking session has expired. Please search again.
+        </p>
+        <button
+          onClick={() => navigate("/")}
+          className="px-5 py-2 bg-yellow-400 text-black rounded-lg"
+        >
+          Go Home
+        </button>
+      </div>
+    );
+  }
+
+  const roomData = preBook?.raw?.HotelResult?.[0]?.Rooms?.[0];
+  const validation = preBook?.validation || {};
+
+  const bookingCode = preBook?.booking_code;
+  const total = preBook?.total_amount || 0;
+  const net = preBook?.net_amount || 0;
+  const convenienceFee = preBook?.convenience_fee || 0;
+
+  /* ================= GUEST STATE ================= */
+  const totalGuests =
+    typeof guests === "number"
+      ? guests
+      : (guests?.adults || 0) + (guests?.children || 0);
+
+  const [guestList, setGuestList] = useState(
+    Array.from({ length: totalGuests }, (_, i) => {
+      const isChild = i >= (guests?.adults || totalGuests);
+
+      return {
+        Title: "Mr",
+        FirstName: "",
+        LastName: "",
+        Email: "",
+        Phoneno: "",
+        PaxType: isChild ? 2 : 1,
+        LeadPassenger: i === 0,
+        Age: isChild ? 10 : 30,
+      };
+    }),
+  );
+
+  const [loading, setLoading] = useState(false);
+
+  const updateGuest = (index, field, value) => {
+    const updated = [...guestList];
+    updated[index][field] = value;
+    setGuestList(updated);
+  };
+
+  const validateGuests = () => {
+    for (let g of guestList) {
+      if (!g.FirstName.trim() || !g.LastName.trim())
+        return "All guest names required";
+
+      if (g.LeadPassenger) {
+        if (!g.Email.includes("@")) return "Valid email required";
+        if (!/^[0-9]{10}$/.test(g.Phoneno))
+          return "Valid 10-digit phone required";
+      }
+
+      if (
+        validation?.PaxNameMinLength &&
+        g.FirstName.length < validation.PaxNameMinLength
+      )
+        return "Name too short";
+
+      if (
+        validation?.PaxNameMaxLength &&
+        g.FirstName.length > validation.PaxNameMaxLength
+      )
+        return "Name too long";
+    }
+    return null;
+  };
+
+  /* ================= 💳 PAYMENT ================= */
+  const handlePayment = async () => {
+    const error = validateGuests();
+    if (error) return alert(error);
+
+    try {
+      setLoading(true);
+
+      // ✅ Save booking data before redirect
+      localStorage.setItem(
+        "hotelBookingData",
+        JSON.stringify({
+          guestList,
+          bookingCode,
+          net,
+          hotel,
+          checkIn,
+          checkOut,
+        }),
+      );
+
+      const paymentPayload = {
+        amount: Math.round(total),
+        currency: "INR",
+
+        name: guestList[0].FirstName + " " + guestList[0].LastName,
+        email: guestList[0].Email,
+        phone: guestList[0].Phoneno,
+
+        description: `Hotel booking for ${hotel?.hotel_name}`,
+        booking_code: bookingCode,
+      };
+
+      const res = await privateApi.get("/payments/initiate/", {
+        params: paymentPayload,
+      });
+
+      const html = res.data;
+
+      // ✅ Create container (DO NOT replace document)
+      const container = document.createElement("div");
+      container.innerHTML = html;
+      document.body.appendChild(container);
+
+      // ✅ Find and submit form
+      const form = container.querySelector("form");
+
+      if (form) {
+        form.submit();
+      } else {
+        throw new Error("Payment form not found");
+      }
+    } catch (err) {
+      console.log("PAYMENT ERROR:", err);
+      alert("Payment failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0B0B0F] text-white px-4 md:px-10 py-24">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* LEFT */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-[#15151C] p-6 rounded-2xl border border-gray-800">
+            <h2 className="text-2xl font-bold text-yellow-400">
+              {hotel?.hotel_name}
+            </h2>
+            <p className="text-gray-400 text-sm mt-2">
+              📅 {checkIn} → {checkOut}
+            </p>
+            <p className="text-gray-400 text-sm mt-1">
+              🛏 {roomData?.Name?.[0] || "Standard Room"}
+            </p>
+          </div>
+
+          {guestList.map((guest, index) => (
+            <div
+              key={index}
+              className="bg-[#15151C] p-6 rounded-2xl border border-gray-800"
+            >
+              <h3 className="text-yellow-300 mb-4">
+                Guest {index + 1} {guest.LeadPassenger && "(Lead)"}
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input
+                  placeholder="First Name"
+                  className="input"
+                  value={guest.FirstName}
+                  onChange={(e) =>
+                    updateGuest(index, "FirstName", e.target.value)
+                  }
+                />
+                <input
+                  placeholder="Last Name"
+                  className="input"
+                  value={guest.LastName}
+                  onChange={(e) =>
+                    updateGuest(index, "LastName", e.target.value)
+                  }
+                />
+
+                {guest.LeadPassenger && (
+                  <>
+                    <input
+                      placeholder="Email"
+                      className="input"
+                      value={guest.Email}
+                      onChange={(e) =>
+                        updateGuest(index, "Email", e.target.value)
+                      }
+                    />
+                    <input
+                      placeholder="Phone"
+                      className="input"
+                      value={guest.Phoneno}
+                      onChange={(e) =>
+                        updateGuest(index, "Phoneno", e.target.value)
+                      }
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* RIGHT */}
+        <div className="bg-[#15151C] p-6 rounded-2xl border border-gray-800 h-fit sticky top-24">
+          <h3 className="text-yellow-300 mb-4 text-lg">Price Summary</h3>
+
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span>Net</span>
+              <span>₹ {Math.round(net)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Fee</span>
+              <span>₹ {Math.round(convenienceFee)}</span>
+            </div>
+
+            <hr className="border-gray-700" />
+
+            <div className="flex justify-between font-bold text-lg">
+              <span>Total</span>
+              <span className="text-yellow-400">₹ {Math.round(total)}</span>
+            </div>
+          </div>
+
+          <button
+            onClick={handlePayment}
+            disabled={loading}
+            className="mt-6 w-full py-3 rounded-xl font-semibold bg-linear-to-r from-yellow-400 to-orange-400 text-black"
+          >
+            {loading ? "Processing..." : "Proceed to Payment"}
+          </button>
+        </div>
+      </div>
+
+      <style jsx>{`
+        .input {
+          background: #0b0b0f;
+          border: 1px solid #2a2a2f;
+          padding: 12px;
+          border-radius: 10px;
+          width: 100%;
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default HotelBooking;
