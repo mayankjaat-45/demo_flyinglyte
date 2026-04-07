@@ -11,9 +11,9 @@ const SearchBox = () => {
   const renderForm = () => {
     switch (activeTab) {
       case "flights":
-        return <FlightsForm />;
+      // return <FlightsForm />;
       case "hotels":
-        return <HotelsForm />;
+      // return <HotelsForm />;
       case "packages":
         navigate("/packages");
         return null;
