@@ -68,9 +68,9 @@ const Navbar = () => {
             Packages
           </Link>
 
-          <Link to="/flights" className={linkClass("/flights")}>
+          {/* <Link to="/flights" className={linkClass("/flights")}>
             Flights
-          </Link>
+          </Link> */}
 
           <Link to="/contact" className={linkClass("/contact")}>
             Contact
@@ -153,13 +153,13 @@ const Navbar = () => {
           >
             Packages
           </button>
-
+{/* 
           <button
             onClick={() => navigate("/flights")}
             className="text-left hover:text-[#E6B35C]"
           >
             Flights
-          </button>
+          </button> */}
 
           <button
             onClick={() => navigate("/contact")}
