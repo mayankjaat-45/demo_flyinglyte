@@ -153,7 +153,7 @@ const Navbar = () => {
           >
             Packages
           </button>
-{/* 
+          {/* 
           <button
             onClick={() => navigate("/flights")}
             className="text-left hover:text-[#E6B35C]"
