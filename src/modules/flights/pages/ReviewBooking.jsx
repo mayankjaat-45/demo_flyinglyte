@@ -44,9 +44,11 @@ const ReviewBooking = () => {
       navigate("/");
       return;
     }
+
     try {
       setLoading(true);
 
+      // ✅ STEP 1: Get latest fare
       const quoteRes = await privateApi.post("/api/airlines/fare-quote/", {
         TraceId: traceId,
         ResultIndex: resultIndex,
@@ -58,10 +60,8 @@ const ReviewBooking = () => {
       const newTraceId = response?.TraceId;
       const newResultIndex = response?.Results?.ResultIndex;
       const newFare = response?.Results?.Fare;
-      const pricing = fareQuote?.Pricing;
 
-      /* ---------- Convert passengers ---------- */
-
+      // ✅ STEP 2: Format passengers
       const formattedPassengers = passengers.map((p) => ({
         Title: p.title,
         FirstName: p.firstName,
@@ -80,25 +80,60 @@ const ReviewBooking = () => {
         Fare: newFare,
       }));
 
-      const payload = {
+      // ✅ STEP 3: Booking payload
+      const bookingPayload = {
         TraceId: newTraceId,
         ResultIndex: newResultIndex,
-
         Passengers: formattedPassengers,
-
-        SeatDynamic:
-          selectedSeats?.map((s) => ({
-            SeatCode: s.Code,
-          })) || [],
-
+        SeatDynamic: selectedSeats?.map((s) => ({ SeatCode: s.Code })) || [],
         MealDynamic: selectedMeal ? [{ Code: selectedMeal.Code }] : [],
       };
-      const res = await privateApi.post("/api/airlines/book/", payload);
 
-      navigate("/booking-success", {
-        state: res.data,
-      });
+      // ✅ STEP 4: Create booking FIRST
+      const bookingRes = await privateApi.post(
+        "/api/airlines/book/",
+        bookingPayload,
+      );
+
+      const bookingData = bookingRes.data;
+
+      // ✅ Save before payment
+      localStorage.setItem("flightBookingData", JSON.stringify(bookingData));
+
+      // ✅ STEP 5: Initiate PAYMENT
+      const lead = passengers[0];
+
+      const paymentPayload = {
+        amount: String(Math.round(totalPrice)),
+        firstname: lead.firstName,
+        email: lead.email,
+        phone: lead.phone,
+      };
+
+      const paymentRes = await privateApi.post(
+        "/payment/initiate/",
+        paymentPayload,
+      );
+
+      // ✅ STEP 6: Handle PayU HTML
+      if (typeof paymentRes.data === "string") {
+        const container = document.createElement("div");
+        container.innerHTML = paymentRes.data;
+
+        container.style.display = "none";
+        document.body.appendChild(container);
+
+        const form = container.querySelector("#payuForm");
+
+        if (form) {
+          form.submit();
+          return; // 🔥 STOP EXECUTION
+        } else {
+          throw new Error("Payment form not found");
+        }
+      }
     } catch (error) {
+      console.log("ERROR:", error);
       alert(error.response?.data?.message || "Booking failed");
     } finally {
       setLoading(false);
@@ -152,7 +187,7 @@ const ReviewBooking = () => {
 
         <div className="border-t mt-2 pt-2 font-bold flex justify-between">
           <span>Total</span>
-          <span>₹{pricing?.TotalPayable}</span>
+          <span>₹{totalPrice}</span>
         </div>
       </div>
 

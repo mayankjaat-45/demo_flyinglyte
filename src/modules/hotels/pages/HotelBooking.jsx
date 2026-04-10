@@ -104,7 +104,9 @@ const HotelBooking = () => {
     try {
       setLoading(true);
 
-      // ✅ Save booking data before redirect
+      const lead = guestList[0];
+
+      // ✅ Save booking before redirect
       localStorage.setItem(
         "hotelBookingData",
         JSON.stringify({
@@ -117,40 +119,44 @@ const HotelBooking = () => {
         }),
       );
 
+      // ✅ Correct payload
       const paymentPayload = {
-        amount: Math.round(total),
-        currency: "INR",
-
-        name: guestList[0].FirstName + " " + guestList[0].LastName,
-        email: guestList[0].Email,
-        phone: guestList[0].Phoneno,
-
-        description: `Hotel booking for ${hotel?.hotel_name}`,
-        booking_code: bookingCode,
+        amount: String(Math.round(total)), // API expects string
+        firstname: lead.FirstName,
+        email: lead.Email,
+        phone: lead.Phoneno,
       };
 
-      const res = await privateApi.get("/payments/initiate/", {
-        params: paymentPayload,
-      });
+      // ✅ POST request to Flyinglyte
+      const res = await privateApi.post("/payment/initiate/", paymentPayload);
 
-      const html = res.data;
+      console.log("PAYMENT RESPONSE:", res.data);
 
-      // ✅ Create container (DO NOT replace document)
-      const container = document.createElement("div");
-      container.innerHTML = html;
-      document.body.appendChild(container);
+      // ✅ Handle redirect (based on API response)
+      // ✅ Handle HTML form response (PayU)
+      if (typeof res.data === "string") {
+        const container = document.createElement("div");
+        container.innerHTML = res.data;
 
-      // ✅ Find and submit form
-      const form = container.querySelector("form");
+        container.style.display = "none"; // optional
+        document.body.appendChild(container);
 
-      if (form) {
-        form.submit();
-      } else {
-        throw new Error("Payment form not found");
+        const form = container.querySelector("#payuForm");
+
+        if (form) {
+          form.submit();
+
+          return; // ✅ VERY IMPORTANT (STOP EXECUTION)
+        } else {
+          throw new Error("Payment form not found");
+        }
       }
     } catch (err) {
-      console.log("PAYMENT ERROR:", err);
-      alert("Payment failed");
+      console.log("FULL ERROR:", err);
+      console.log("RESPONSE:", err?.response);
+      console.log("DATA:", err?.response?.data);
+
+      alert(err?.response?.data?.message || "Payment failed");
     } finally {
       setLoading(false);
     }

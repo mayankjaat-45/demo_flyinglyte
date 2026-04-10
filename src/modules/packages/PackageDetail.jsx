@@ -75,14 +75,49 @@ const PackageDetails = () => {
 
   const bookingMutation = useMutation({
     mutationFn: createBooking,
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
       const booking = res.data;
 
-      toast.success(res.message);
+      toast.success("Booking created. Redirecting to payment...");
 
-      navigate(`/package_booking_success/${booking.booking_id}`, {
-        state: { booking },
-      });
+      try {
+        // ✅ Save booking before payment
+        localStorage.setItem("packageBookingData", JSON.stringify(booking));
+
+        // ✅ Payment payload (Flyinglyte)
+        const paymentPayload = {
+          amount: String(Math.round(booking.total_price)),
+          firstname: booking.customer?.name || formData.name,
+          email: booking.customer?.email || formData.email,
+          phone: booking.customer?.phone || formData.phone,
+        };
+
+        const paymentRes = await privateApi.post(
+          "/payment/initiate/",
+          paymentPayload,
+        );
+
+        // ✅ Handle PayU HTML response
+        if (typeof paymentRes.data === "string") {
+          const container = document.createElement("div");
+          container.innerHTML = paymentRes.data;
+
+          container.style.display = "none";
+          document.body.appendChild(container);
+
+          const form = container.querySelector("#payuForm");
+
+          if (form) {
+            form.submit();
+            return; // 🔥 VERY IMPORTANT
+          } else {
+            throw new Error("Payment form not found");
+          }
+        }
+      } catch (err) {
+        console.log("PAYMENT ERROR:", err);
+        toast.error("Payment initiation failed");
+      }
     },
   });
 
@@ -116,7 +151,6 @@ const PackageDetails = () => {
       children: formData.children,
       total_passengers: totalPassengers,
       total_price: totalPrice,
-
       customer: {
         name: formData.name,
         email: formData.email,
@@ -156,6 +190,7 @@ const PackageDetails = () => {
       {/* HERO */}
       {/* PREMIUM IMAGE GALLERY */}
       <div className="max-w-7xl mx-auto px-4 pt-26">
+        {/* BACK BUTTON */}
         <button
           onClick={() => navigate("/packages")}
           className="mb-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm"
@@ -165,7 +200,9 @@ const PackageDetails = () => {
         <h1 className="text-2xl md:text-4xl font-(--font-hero) text-(--gold-main) mb-2">
           {pkg.tour_name}
         </h1>
+
         <p className="text-gray-400 mb-6">{pkg.Country_City_Multicity}</p>
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 rounded-xl overflow-hidden">
           {/* MAIN IMAGE */}
           <motion.div
