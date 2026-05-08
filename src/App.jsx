@@ -28,6 +28,8 @@ import HotelDetails from "./modules/hotels/pages/HotelDetails";
 import PrebookLoader from "./modules/hotels/pages/PreBookLoader";
 import HotelBooking from "./modules/hotels/pages/HotelBooking";
 import HotelBookingSuccess from "./modules/hotels/pages/BookingSuccess";
+import Blogs from "./Pages/Blogs";
+import BlogDetails from "./Pages/BlogDetails";
 
 const App = () => {
   return (
@@ -45,6 +47,8 @@ const App = () => {
         />
         <Route path="/bookings" element={<MyBookings />} />
         <Route path="/about" element={<AboutUs />} />
+        <Route path="/blogs" element={<Blogs/>} />
+        <Route path="/blogs/:slug" element={<BlogDetails />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/flights" element={<FlightsResults />} />
         <Route path="/hotels" element={<HotelResults />} />
