@@ -4,7 +4,7 @@ import { blogs } from "../../data/blogs";
 
 const BlogSection = () => {
   return (
-    <section className="relative py-20 bg-(--bg-main) overflow-hidden">
+    <section className="relative py-25 bg-(--bg-main) overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(248,222,130,0.12),transparent_35%)]" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
